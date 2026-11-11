@@ -1,0 +1,3 @@
+flask
+faster-whisper
+av<17
