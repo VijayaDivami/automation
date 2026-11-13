@@ -1,5 +1,6 @@
-import path from 'path';
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from '@playwright/test'
+
+const BASE_URL = 'http://localhost:5000'
 
 export default defineConfig({
   testDir: './tests',
@@ -7,21 +8,13 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
   webServer: {
     command: '.venv/bin/python server.py',
-    url: 'http://localhost:5000',
+    url: BASE_URL,
     reuseExistingServer: true,
     timeout: 300_000, // first run may download the model
   },
   use: {
-    baseURL: 'http://localhost:5000',
-    permissions: ['microphone'],
+    baseURL: BASE_URL,
     trace: 'on',
-    launchOptions: {
-      args: [
-        '--use-fake-ui-for-media-stream',
-        '--use-fake-device-for-media-stream',
-        `--use-file-for-fake-audio-capture=${path.resolve('samples/test.wav')}`,
-      ],
-    },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
-});
+})

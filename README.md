@@ -11,9 +11,11 @@ automation/
   transcribe.py              Whisper speech-to-text (load_model, transcribe)
   templates/index.html       Frontend: record button, waveform canvas, transcript box
   requirements.txt           Python deps: flask, faster-whisper, av<17
-  samples/test.wav           Test audio (4 short sentences, ~9.5 s, 16 kHz WAV)
+  audio_samples/             5 test clips (greeting, weather, meeting, report, conversation), 16 kHz WAV
   playwright.config.ts       Test setup: server, fake microphone, reporter
-  tests/transcribe.spec.ts   The automated test
+  tests/transcribe.spec.ts   The automated tests, one per audio sample
+  tests/fixtures.ts          micAudio option + appPage fixture (own browser per test), AUDIO_DIR
+  tests/constants.ts         Status names, labels, timeouts, and the sample/keyword table
   package.json               Node deps: @playwright/test
   .venv/                     Python virtual environment (not for committing)
   node_modules/              Node packages (not for committing)
@@ -44,15 +46,17 @@ Playwright cannot speak into a microphone, so Chromium is told to fake one.
 
 | Piece | Where | What it does |
 |---|---|---|
-| Fake device flags | `playwright.config.ts` `launchOptions.args` | `--use-fake-device-for-media-stream` replaces the mic. `--use-file-for-fake-audio-capture=samples/test.wav` makes the fake mic play that file. `--use-fake-ui-for-media-stream` skips the permission popup. |
+| Fake microphone | `tests/fixtures.ts` fixture `appPage` | Launches a Chromium per test with `--use-fake-device-for-media-stream`, `--use-fake-ui-for-media-stream` and `--use-file-for-fake-audio-capture=<file>%noloop`, and grants microphone permission. The test only passes a file name: `test.use({ micAudio: 'greeting.wav' })`. |
 | Permission | `permissions: ['microphone']` | Grants mic access to the page. |
 | Server startup | `webServer` block | Playwright runs `.venv/bin/python server.py`, waits until port 5000 answers, and stops it afterwards. It reuses a running server if one exists. |
-| Test steps | `tests/transcribe.spec.ts` | Open page, click Start, wait for the clip length, click Stop, wait for `data-state=done`, then check the text contains "transcription", "weather", "meeting", "thank you". |
+| Test steps | `tests/transcribe.spec.ts` | For each entry in `SAMPLES` (`constants.ts`): open page, click Start, wait for the clip length plus a short tail, click Stop, wait for `data-state=done`, then check the transcript contains that clip's keywords. |
 | Reporter | `reporter: [['html'], ['list']]`, `trace: 'on'` | Writes `playwright-report/`, the pass/fail UI with traces. |
 
-The fake mic only accepts WAV files, and it loops the file when it ends. The test therefore
-waits the clip length plus 0.1 s before stopping (`CLIP_SECONDS` in the spec). If you change
-`samples/test.wav`, update that number.
+The fake mic only accepts WAV files. Chromium reads the file only at launch and Playwright cannot
+change launch options per describe group, so the fixture launches a separate browser for each
+test. `%noloop` makes the clip play once instead of repeating. The clip length comes from the WAV
+header (`audioSeconds` in `fixtures.ts`), so there is no number to keep in sync. To add a sample,
+put a WAV in `audio_samples/` and add a line to `SAMPLES`.
 
 ## Commands
 

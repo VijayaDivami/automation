@@ -1,22 +1,36 @@
-import { test, expect } from '@playwright/test';
-
-const CLIP_SECONDS = 9.5; // length of samples/test.wav
+import {
+  BUTTON,
+  RECORD_TAIL_SECONDS,
+  SAMPLES,
+  SELECTORS,
+  STATUS,
+  TRANSCRIBE_TIMEOUT_MS,
+} from './constants'
+import { audioSeconds, expect, test } from './fixtures'
 
 test.describe('Live audio to text', () => {
-  test('transcribes the recorded sentences', { tag: ['@transcribe', '@web', '@whisper'] }, async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('#status')).toHaveAttribute('data-state', 'idle');
+  for (const { file, keywords } of SAMPLES) {
+    test.describe(file, () => {
+      test.use({ micAudio: file })
 
-    await page.getByRole('button', { name: 'Start recording' }).click();
-    await expect(page.locator('#status')).toHaveAttribute('data-state', 'recording');
-    await page.waitForTimeout((CLIP_SECONDS + 0.1) * 1000);
+      test(`transcribes ${file}`, { tag: ['@transcribe', '@web', '@whisper'] }, async ({ appPage }) => {
+        const status = appPage.locator(SELECTORS.status)
 
-    await page.getByRole('button', { name: 'Stop recording' }).click();
-    await expect(page.locator('#status')).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
+        await appPage.goto('/')
+        await expect(status).toHaveAttribute('data-state', STATUS.idle)
 
-    const text = (await page.getByTestId('transcript').innerText()).toLowerCase();
-    for (const word of ['transcription', 'weather', 'meeting', 'thank you']) {
-      expect(text).toContain(word);
-    }
-  });
-});
+        await appPage.getByRole('button', { name: BUTTON.start }).click()
+        await expect(status).toHaveAttribute('data-state', STATUS.recording)
+        await appPage.waitForTimeout((audioSeconds(file) + RECORD_TAIL_SECONDS) * 1000)
+
+        await appPage.getByRole('button', { name: BUTTON.stop }).click()
+        await expect(status).toHaveAttribute('data-state', STATUS.done, { timeout: TRANSCRIBE_TIMEOUT_MS })
+
+        const text = (await appPage.getByTestId(SELECTORS.transcriptTestId).innerText()).toLowerCase()
+        for (const word of keywords) {
+          expect(text).toContain(word)
+        }
+      })
+    })
+  }
+})
